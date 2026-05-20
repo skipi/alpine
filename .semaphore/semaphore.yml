@@ -31,7 +31,7 @@ blocks:
     task:
       prologue:
         commands:
-          - artifact pull workflow packages
+          - artifact pull workflow packages --force
       jobs:
         - name: Cypress
           parallelism: 4
