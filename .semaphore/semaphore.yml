@@ -10,11 +10,9 @@ global_job_config:
     commands:
       - checkout
       - sem-version node 18
-      - cache restore cypress-bin-7,cypress-bin
       - cache restore node-modules-$(checksum package-lock.json),node-modules-main
       - npm install
       - cache store node-modules-$(checksum package-lock.json) node_modules
-      - cache store cypress-bin-7 ~/.cache/Cypress
 
 blocks:
   - name: Build
@@ -36,6 +34,9 @@ blocks:
         - name: Cypress
           parallelism: 4
           commands:
+            - cache restore cypress-bin-7,cypress-bin
+            - npx cypress install
+            - cache store cypress-bin-7 ~/.cache/Cypress
             - export SPECS=$(find tests/cypress/integration -name "*.spec.js" | awk "NR % $SEMAPHORE_JOB_COUNT == ($SEMAPHORE_JOB_INDEX - 1)" | paste -sd, -)
             - npx cypress run --quiet --spec "$SPECS"
 
