@@ -21,7 +21,6 @@ blocks:
         - name: Build
           commands:
             - npm run build
-            - cache store build-$SEMAPHORE_WORKFLOW_ID dist packages
 
         - name: Cypress
           commands:
