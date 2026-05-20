@@ -1,0 +1,72 @@
+version: v1.0
+name: Release
+agent:
+  machine:
+    type: f1-standard-2
+    os_image: ubuntu2404
+
+# TODO(gha-to-semaphore): GHA used `permissions: id-token: write` for npm
+# provenance via GitHub OIDC. Semaphore does not provide GitHub OIDC tokens.
+# Either drop `--provenance` from `npm publish` below, or configure an
+# alternative trust path. See PR body for details.
+
+# TODO(gha-to-semaphore): GHA's implicit `GITHUB_TOKEN` is not available on
+# Semaphore. Create a GitHub PAT (repo + write:packages) and store it as the
+# `github-token` secret, exposing it as GH_TOKEN. Also configure git push auth
+# (e.g. set the remote URL with the token) so the version-bump commit can push.
+
+blocks:
+  - name: Release
+    task:
+      secrets:
+        - name: github-token
+        - name: npm-token
+      prologue:
+        commands:
+          - checkout
+          - sem-version node 20
+          - npm install -g npm@latest
+          - echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > ~/.npmrc
+          - git config user.name "semaphore-ci[bot]"
+          - git config user.email "semaphore-ci[bot]@users.noreply.github.com"
+          - git remote set-url origin "https://x-access-token:${GH_TOKEN}@github.com/${SEMAPHORE_GIT_REPO_SLUG}.git"
+      jobs:
+        - name: Release & Publish
+          commands:
+            - |
+              RAW="$RELEASE_VERSION"
+              VERSION="${RAW#v}"
+              if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+                echo "Invalid version format: $VERSION (expected X.Y.Z)"
+                exit 1
+              fi
+              export VERSION
+              export TAG="v$VERSION"
+              echo "Releasing $TAG"
+            - |
+              if git ls-remote --tags origin | grep -q "refs/tags/${TAG}$"; then
+                echo "Tag $TAG already exists"
+                exit 1
+              fi
+            - npm ci
+            - node scripts/prep-release.js $VERSION
+            - git add -A
+            - git commit -m "Bump version to $VERSION"
+            - git push origin HEAD:main
+            - npm run build
+            - gh release create "$TAG" --target main --title "$TAG" --generate-notes
+            - |
+              FAILED=""
+              for pkg in alpinejs csp intersect collapse persist resize anchor morph focus sort mask ui docs; do
+                echo "Publishing $pkg..."
+                cd packages/$pkg
+                if ! npm publish --access public 2>&1; then
+                  echo "Failed to publish $pkg"
+                  FAILED="$FAILED $pkg"
+                fi
+                cd ../..
+              done
+              if [ -n "$FAILED" ]; then
+                echo "Failed to publish:$FAILED"
+                exit 1
+              fi

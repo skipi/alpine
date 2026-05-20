@@ -1,0 +1,46 @@
+version: v1.0
+name: Run Tests
+agent:
+  machine:
+    type: f1-standard-2
+    os_image: ubuntu2404
+
+global_job_config:
+  prologue:
+    commands:
+      - checkout
+      - sem-version node 18
+      - cache restore node-modules-$(checksum package-lock.json),node-modules-main
+      - npm install
+      - cache store node-modules-$(checksum package-lock.json) node_modules
+
+blocks:
+  - name: Build & Test
+    task:
+      jobs:
+        - name: Build
+          commands:
+            - npm run build
+            - cache store build-$SEMAPHORE_WORKFLOW_ID dist packages
+
+        - name: Cypress
+          commands:
+            - npm run build
+            - npm run test
+
+        - name: Vitest
+          commands:
+            - npm run vitest
+
+# TODO(gha-to-semaphore): the original Release workflow used `workflow_dispatch`
+# (manual trigger with an input). On Semaphore that's modeled as a manual
+# promotion with a parameter. The promotion below points to release.yml; trigger
+# it from the workflow UI or with `sem-ai pipeline_promote`.
+promotions:
+  - name: Release
+    pipeline_file: release.yml
+    parameters:
+      env_vars:
+        - name: RELEASE_VERSION
+          required: true
+          description: 'Version to release (e.g. 3.15.12 or v3.15.12)'
