@@ -1,0 +1,69 @@
+version: v1.0
+name: Alpine.js CI
+
+agent:
+  machine:
+    type: f1-standard-2
+    os_image: ubuntu2404
+
+auto_cancel:
+  running:
+    when: "branch != 'main' AND branch != 'master'"
+
+global_job_config:
+  env_vars:
+    - name: CYPRESS_CACHE_FOLDER
+      value: /home/semaphore/alpine/node_modules/.cypress-cache
+  prologue:
+    commands:
+      - checkout
+      - sem-version node 18
+      - cache restore node-modules-$(checksum package-lock.json),node-modules-
+
+blocks:
+  - name: Setup
+    dependencies: []
+    task:
+      jobs:
+        - name: Install and build
+          commands:
+            - npm ci
+            - npm run build
+            - cache store node-modules-$(checksum package-lock.json) node_modules
+            - cache store dist-$SEMAPHORE_GIT_SHA packages
+
+  - name: Cypress
+    dependencies:
+      - Setup
+    task:
+      prologue:
+        commands:
+          - cache restore dist-$SEMAPHORE_GIT_SHA
+      jobs:
+        - name: Browser tests
+          commands:
+            - npm run test
+
+  - name: Vitest
+    dependencies:
+      - Setup
+    task:
+      prologue:
+        commands:
+          - cache restore dist-$SEMAPHORE_GIT_SHA
+      epilogue:
+        always:
+          commands:
+            - test-results publish junit/ || true
+      jobs:
+        - name: Unit tests
+          commands:
+            - mkdir -p junit
+            - npx vitest run --reporter=default --reporter=junit --outputFile.junit=junit/vitest.xml
+
+after_pipeline:
+  task:
+    jobs:
+      - name: Aggregate test results
+        commands:
+          - test-results gen-pipeline-report || true
