@@ -21,6 +21,7 @@ global_job_config:
       - cache restore node-modules-$(checksum package-lock.json),node-modules-
       - npm install
       - cache store node-modules-$(checksum package-lock.json) node_modules
+      - npx cypress install
       - npm run build
   epilogue:
     always:
