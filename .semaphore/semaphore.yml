@@ -1,0 +1,77 @@
+version: v1.0
+name: Alpine.js
+
+agent:
+  machine:
+    type: f1-standard-2
+    os_image: ubuntu2404
+
+auto_cancel:
+  running:
+    when: "branch != 'main' AND branch != 'master'"
+
+global_job_config:
+  env_vars:
+    - name: CYPRESS_CACHE_FOLDER
+      value: /home/semaphore/.cache/Cypress
+  prologue:
+    commands:
+      - checkout
+      - sem-version node 18
+      - cache restore node-modules-$(checksum package-lock.json),node-modules-
+      - cache restore cypress-bin-$(checksum package-lock.json),cypress-bin-
+
+blocks:
+  - name: Install and build
+    dependencies: []
+    task:
+      jobs:
+        - name: install + build
+          commands:
+            - npm ci
+            - npm run build
+            - cache store node-modules-$(checksum package-lock.json) node_modules
+            - cache store cypress-bin-$(checksum package-lock.json) /home/semaphore/.cache/Cypress
+
+  - name: Cypress
+    dependencies: ["Install and build"]
+    task:
+      epilogue:
+        always:
+          commands:
+            - test-results publish cypress-results/ || true
+      jobs:
+        - name: cypress
+          parallelism: 4
+          commands:
+            - npm run build
+            - npm install --no-save --no-audit --prefer-offline cypress-multi-reporters mocha-junit-reporter
+            - 'specs=$(find tests/cypress/integration -name "*.spec.js" | sort | awk "NR % $SEMAPHORE_JOB_COUNT == ($SEMAPHORE_JOB_INDEX - 1)" | paste -sd, -)'
+            - 'echo "Shard $SEMAPHORE_JOB_INDEX/$SEMAPHORE_JOB_COUNT:"; echo "$specs" | tr , "\n"'
+            - mkdir -p cypress-results
+            - npx cypress run --spec "$specs" --reporter cypress-multi-reporters --reporter-options "configFile=.semaphore/cypress-reporter-config.json"
+
+  - name: Vitest
+    dependencies: ["Install and build"]
+    task:
+      epilogue:
+        always:
+          commands:
+            - test-results publish vitest-results/ || true
+      jobs:
+        - name: vitest
+          commands:
+            - npm run build
+            - mkdir -p vitest-results
+            - npx vitest run --reporter=default --reporter=junit --outputFile.junit=vitest-results/junit.xml
+
+after_pipeline:
+  task:
+    jobs:
+      - name: aggregate test results
+        commands:
+          - test-results gen-pipeline-report || true
+
+promotions:
+  - name: Release
+    pipeline_file: release.yml

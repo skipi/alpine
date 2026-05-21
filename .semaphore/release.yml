@@ -1,0 +1,24 @@
+version: v1.0
+name: Release (stub)
+
+agent:
+  machine:
+    type: f1-standard-2
+    os_image: ubuntu2404
+
+global_job_config:
+  prologue:
+    commands:
+      - checkout
+      - sem-version node 20
+
+blocks:
+  - name: Release placeholder
+    dependencies: []
+    task:
+      jobs:
+        - name: not wired
+          commands:
+            - 'echo "Release pipeline stub. Port .github/workflows/release.yml here."'
+            - 'echo "TODO: wire NPM_TOKEN + GH_TOKEN secrets, run scripts/prep-release.js, npm publish per package."'
+            - exit 1
