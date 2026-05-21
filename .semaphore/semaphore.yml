@@ -13,11 +13,23 @@ global_job_config:
       - cache restore node-modules-$(checksum package-lock.json),node-modules-main
       - npm install
       - cache store node-modules-$(checksum package-lock.json) node_modules
-      - npm run build
 
 blocks:
-  - name: Test
+  - name: Build
+    dependencies: []
     task:
+      jobs:
+        - name: Build
+          commands:
+            - npm run build
+            - cache store build-$SEMAPHORE_GIT_SHA packages
+
+  - name: Test
+    dependencies: [Build]
+    task:
+      prologue:
+        commands:
+          - cache restore build-$SEMAPHORE_GIT_SHA
       jobs:
         - name: Cypress
           parallelism: 4
