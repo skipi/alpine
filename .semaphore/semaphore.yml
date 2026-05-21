@@ -30,6 +30,10 @@ blocks:
       prologue:
         commands:
           - cache restore build-$SEMAPHORE_GIT_SHA
+      epilogue:
+        always:
+          commands:
+            - '[ -f junit-vitest.xml ] && test-results publish junit-vitest.xml --name vitest || true'
       jobs:
         - name: Cypress
           parallelism: 4
@@ -42,11 +46,7 @@ blocks:
 
         - name: Vitest
           commands:
-            - |
-              npm run vitest -- --reporter=default --reporter=junit --outputFile.junit=junit-vitest.xml
-              RC=$?
-              test-results publish junit-vitest.xml --name vitest || true
-              exit $RC
+            - npm run vitest -- --reporter=default --reporter=junit --outputFile.junit=junit-vitest.xml
 
 # TODO(gha-to-semaphore): the original Release workflow used `workflow_dispatch`
 # (manual trigger with an input). On Semaphore that's modeled as a manual
