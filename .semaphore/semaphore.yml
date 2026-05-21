@@ -36,23 +36,41 @@ blocks:
   - name: Cypress
     dependencies: ["Install and build"]
     task:
+      epilogue:
+        always:
+          commands:
+            - test-results publish cypress-results/ || true
       jobs:
         - name: cypress
           parallelism: 4
           commands:
             - npm run build
+            - npm install --no-save --no-audit --prefer-offline cypress-multi-reporters mocha-junit-reporter
             - 'specs=$(find tests/cypress/integration -name "*.spec.js" | sort | awk "NR % $SEMAPHORE_JOB_COUNT == ($SEMAPHORE_JOB_INDEX - 1)" | paste -sd, -)'
             - 'echo "Shard $SEMAPHORE_JOB_INDEX/$SEMAPHORE_JOB_COUNT:"; echo "$specs" | tr , "\n"'
-            - npx cypress run --quiet --spec "$specs"
+            - mkdir -p cypress-results
+            - npx cypress run --quiet --spec "$specs" --reporter cypress-multi-reporters --reporter-options "configFile=.semaphore/cypress-reporter-config.json"
 
   - name: Vitest
     dependencies: ["Install and build"]
     task:
+      epilogue:
+        always:
+          commands:
+            - test-results publish vitest-results/ || true
       jobs:
         - name: vitest
           commands:
             - npm run build
-            - npm run vitest
+            - mkdir -p vitest-results
+            - npx vitest run --reporter=default --reporter=junit --outputFile.junit=vitest-results/junit.xml
+
+after_pipeline:
+  task:
+    jobs:
+      - name: aggregate test results
+        commands:
+          - test-results gen-pipeline-report || true
 
 promotions:
   - name: Release
