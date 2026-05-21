@@ -42,7 +42,11 @@ blocks:
 
         - name: Vitest
           commands:
-            - npm run vitest
+            - |
+              npm run vitest -- --reporter=default --reporter=junit --outputFile.junit=junit-vitest.xml
+              RC=$?
+              test-results publish junit-vitest.xml --name vitest || true
+              exit $RC
 
 # TODO(gha-to-semaphore): the original Release workflow used `workflow_dispatch`
 # (manual trigger with an input). On Semaphore that's modeled as a manual
