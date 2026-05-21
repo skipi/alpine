@@ -28,7 +28,9 @@ blocks:
         - name: Install and build
           commands:
             - npm ci
+            - npx cypress install
             - npm run build
+            - cache delete node-modules-$(checksum package-lock.json)
             - cache store node-modules-$(checksum package-lock.json) node_modules
             - cache store dist-$SEMAPHORE_GIT_SHA packages
 
