@@ -49,7 +49,7 @@ blocks:
             - 'specs=$(find tests/cypress/integration -name "*.spec.js" | sort | awk "NR % $SEMAPHORE_JOB_COUNT == ($SEMAPHORE_JOB_INDEX - 1)" | paste -sd, -)'
             - 'echo "Shard $SEMAPHORE_JOB_INDEX/$SEMAPHORE_JOB_COUNT:"; echo "$specs" | tr , "\n"'
             - mkdir -p cypress-results
-            - npx cypress run --quiet --spec "$specs" --reporter cypress-multi-reporters --reporter-options "configFile=.semaphore/cypress-reporter-config.json"
+            - npx cypress run --spec "$specs" --reporter cypress-multi-reporters --reporter-options "configFile=.semaphore/cypress-reporter-config.json"
 
   - name: Vitest
     dependencies: ["Install and build"]
