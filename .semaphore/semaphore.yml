@@ -33,10 +33,13 @@ blocks:
     task:
       jobs:
         - name: cypress run
+          parallelism: 3
           commands:
             - npm run build
             - mkdir -p junit-reports
-            - npx cypress run --quiet --reporter mocha-junit-reporter --reporter-options "mochaFile=junit-reports/cypress-[hash].xml,toConsole=false"
+            - SPECS=$(ls tests/cypress/integration/*.spec.js | awk -v i=$SEMAPHORE_JOB_INDEX -v n=$SEMAPHORE_JOB_COUNT 'NR % n == (i - 1) % n' | paste -sd ',' -)
+            - echo "Running specs:$SPECS"
+            - npx cypress run --spec "$SPECS" --reporter cypress-multi-reporters --reporter-options configFile=.semaphore/cypress-reporter.json
       epilogue:
         always:
           commands:
