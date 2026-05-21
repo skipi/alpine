@@ -1,0 +1,42 @@
+version: v1.0
+name: Alpine.js Tests
+
+agent:
+  machine:
+    type: f1-standard-2
+    os_image: ubuntu2404
+
+auto_cancel:
+  running:
+    when: "branch != 'main' AND branch != 'master'"
+
+global_job_config:
+  env_vars:
+    - name: CYPRESS_CACHE_FOLDER
+      value: node_modules/.cache/Cypress
+  prologue:
+    commands:
+      - checkout
+      - sem-version node 18
+      - cache restore node-modules-$(checksum package-lock.json),node-modules-
+      - npm install
+      - cache store node-modules-$(checksum package-lock.json) node_modules
+      - npx cypress install
+      - npm run build
+  epilogue:
+    always:
+      commands:
+        - "[[ -f junit.xml ]] && test-results publish junit.xml || true"
+
+blocks:
+  - name: Tests
+    dependencies: []
+    task:
+      jobs:
+        - name: Cypress
+          commands:
+            - npm test
+
+        - name: Vitest
+          commands:
+            - npx vitest run --reporter=default --reporter=junit --outputFile=junit.xml
