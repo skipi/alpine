@@ -13,23 +13,11 @@ global_job_config:
       - cache restore node-modules-$(checksum package-lock.json),node-modules-main
       - npm install
       - cache store node-modules-$(checksum package-lock.json) node_modules
+      - npm run build
 
 blocks:
-  - name: Build
-    dependencies: []
-    task:
-      jobs:
-        - name: Build
-          commands:
-            - npm run build
-            - artifact push workflow packages --force
-
   - name: Test
-    dependencies: [Build]
     task:
-      prologue:
-        commands:
-          - artifact pull workflow packages --force
       jobs:
         - name: Cypress
           parallelism: 4
