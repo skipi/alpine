@@ -6,11 +6,15 @@ agent:
     os_image: ubuntu2404
 
 global_job_config:
+  env_vars:
+    - name: CYPRESS_CACHE_FOLDER
+      value: /home/semaphore/alpine/.cypress-cache
   prologue:
     commands:
       - checkout
       - sem-version node 18
       - cache restore node-modules-$SEMAPHORE_GIT_BRANCH-$(checksum package-lock.json),node-modules-$SEMAPHORE_GIT_BRANCH-,node-modules-main-
+      - cache restore cypress-cache-$(checksum package-lock.json),cypress-cache-
 
 blocks:
   - name: Install
@@ -20,7 +24,9 @@ blocks:
         - name: npm ci
           commands:
             - npm ci
+            - npx cypress install
             - cache store node-modules-$SEMAPHORE_GIT_BRANCH-$(checksum package-lock.json) node_modules
+            - cache store cypress-cache-$(checksum package-lock.json) .cypress-cache
 
   - name: Browser tests
     dependencies: [Install]
@@ -44,7 +50,7 @@ blocks:
           commands:
             - npm run build
             - mkdir -p junit-reports
-            - npx vitest run --reporter=junit --outputFile=junit-reports/vitest.xml
+            - npx vitest run --reporter=default --reporter=junit --outputFile.junit=junit-reports/vitest.xml
       epilogue:
         always:
           commands:
