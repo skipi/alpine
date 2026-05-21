@@ -41,10 +41,18 @@ blocks:
       prologue:
         commands:
           - cache restore dist-$SEMAPHORE_GIT_SHA
+          - mkdir -p junit
+      epilogue:
+        always:
+          commands:
+            - test-results publish junit/ || true
       jobs:
         - name: Browser tests
+          parallelism: 3
           commands:
-            - npm run test
+            - SPECS=$(find tests/cypress/integration -name "*.spec.js" | sort | awk "NR % $SEMAPHORE_JOB_COUNT == $SEMAPHORE_JOB_INDEX - 1" | paste -sd,)
+            - echo "Running specs - $SPECS"
+            - npx cypress run --quiet --spec "$SPECS"
 
   - name: Vitest
     dependencies:
