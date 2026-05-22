@@ -1,0 +1,67 @@
+version: v1.0
+name: Alpine.js
+agent:
+  machine:
+    type: f1-standard-2
+    os_image: ubuntu2404
+
+global_job_config:
+  env_vars:
+    - name: CYPRESS_CACHE_FOLDER
+      value: /home/semaphore/alpine/.cypress-cache
+  prologue:
+    commands:
+      - checkout
+      - sem-version node 18
+      - cache restore node-modules-$SEMAPHORE_GIT_BRANCH-$(checksum package-lock.json),node-modules-$SEMAPHORE_GIT_BRANCH-,node-modules-main-
+      - cache restore cypress-cache-$(checksum package-lock.json),cypress-cache-
+
+blocks:
+  - name: Install
+    dependencies: []
+    task:
+      jobs:
+        - name: npm ci
+          commands:
+            - npm ci
+            - npx cypress install
+            - cache store node-modules-$SEMAPHORE_GIT_BRANCH-$(checksum package-lock.json) node_modules
+            - cache store cypress-cache-$(checksum package-lock.json) .cypress-cache
+
+  - name: Browser tests
+    dependencies: [Install]
+    task:
+      jobs:
+        - name: cypress run
+          parallelism: 3
+          commands:
+            - npm run build
+            - mkdir -p junit-reports
+            - SPECS=$(find tests/cypress/integration -name '*.spec.js' | sort | awk -v i=$SEMAPHORE_JOB_INDEX -v n=$SEMAPHORE_JOB_COUNT 'NR % n == (i - 1) % n' | paste -sd ',' -)
+            - echo "Running specs:$SPECS"
+            - npx cypress run --spec "$SPECS" --reporter cypress-multi-reporters --reporter-options configFile=.semaphore/cypress-reporter.json
+      epilogue:
+        always:
+          commands:
+            - test-results publish junit-reports
+
+  - name: Unit tests
+    dependencies: [Install]
+    task:
+      jobs:
+        - name: vitest run
+          commands:
+            - npm run build
+            - mkdir -p junit-reports
+            - npx vitest run --reporter=default --reporter=junit --outputFile.junit=junit-reports/vitest.xml
+      epilogue:
+        always:
+          commands:
+            - test-results publish junit-reports
+
+after_pipeline:
+  task:
+    jobs:
+      - name: Aggregate test reports
+        commands:
+          - test-results gen-pipeline-report
