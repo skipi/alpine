@@ -27,10 +27,25 @@ blocks:
   - name: Tests
     dependencies: []
     task:
+      epilogue:
+        always:
+          commands:
+            - test-results publish reports/
       jobs:
         - name: Cypress
+          parallelism: 2
           commands:
-            - npm run test
+            - mkdir -p reports/cypress
+            - |
+              SPECS=$(find tests/cypress/integration -name '*.spec.js' | sort \
+                | awk -v i=$SEMAPHORE_JOB_INDEX -v n=$SEMAPHORE_JOB_COUNT 'NR % n == (i-1)' \
+                | paste -sd, -)
+              echo "Shard $SEMAPHORE_JOB_INDEX/$SEMAPHORE_JOB_COUNT specs:"
+              echo "$SPECS" | tr , '\n'
+              npx cypress run --quiet --spec "$SPECS" \
+                --reporter cypress-multi-reporters \
+                --reporter-options configFile=reporter-config.json
         - name: Vitest
           commands:
-            - npm run vitest
+            - mkdir -p reports/vitest
+            - npx vitest run --reporter=default --reporter=junit --outputFile.junit=reports/vitest/vitest-junit.xml

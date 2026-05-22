@@ -4,3 +4,4 @@ dist/
 prompts/
 .env.json
 .idea
+reports/
