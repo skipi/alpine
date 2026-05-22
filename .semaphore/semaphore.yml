@@ -1,0 +1,36 @@
+version: v1.0
+name: Alpine.js
+
+agent:
+  machine:
+    type: f1-standard-2
+    os_image: ubuntu2404
+
+auto_cancel:
+  running:
+    when: "branch != 'main' AND branch != 'master'"
+
+global_job_config:
+  env_vars:
+    - name: CYPRESS_CACHE_FOLDER
+      value: node_modules/.cypress-cache
+  prologue:
+    commands:
+      - checkout
+      - sem-version node 18
+      - cache restore node-modules-$(checksum package-lock.json),node-modules-
+      - npm install
+      - cache store node-modules-$(checksum package-lock.json) node_modules
+      - npm run build
+
+blocks:
+  - name: Tests
+    dependencies: []
+    task:
+      jobs:
+        - name: Cypress
+          commands:
+            - npm run test
+        - name: Vitest
+          commands:
+            - npm run vitest
